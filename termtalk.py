@@ -84,9 +84,7 @@ for stanza objects and the Message stanza to see
 how it may be used.
 """
         if msg['type'] in ('chat', 'normal'):
-            print(msg)
-'''            print("From" + str(msg["from"].bare) + ";" + self.roster_search_name(msg) ) # remove the crap after the id'''
-            print("From " + self.roster_search_name(msg))
+            print(self.roster_search_name(msg) + ":  " + msg["body"])
             reply = raw_input("enter reply: ")
             msg.reply(reply).send()
 
