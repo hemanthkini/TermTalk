@@ -57,7 +57,7 @@ Process the session_start event.
 Typical actions for the session_start event are
 requesting the roster and broadcasting an initial
 presence stanza.
-o
+
 Arguments:
 event -- An empty dictionary. The session_start
 event does not provide any additional
@@ -85,7 +85,8 @@ how it may be used.
 """
         if msg['type'] in ('chat', 'normal'):
             print(msg)
-            print("From" + str(msg["from"].bare) + ";" + self.roster_search_name(msg) ) # remove the crap after the id
+'''            print("From" + str(msg["from"].bare) + ";" + self.roster_search_name(msg) ) # remove the crap after the id'''
+            print("From " + self.roster_search_name(msg))
             reply = raw_input("enter reply: ")
             msg.reply(reply).send()
 
@@ -118,7 +119,7 @@ if __name__ == '__main__':
                         format='%(levelname)-8s %(message)s')
 
     if opts.jid is None:
-        opts.jid = raw_input("Username: ")
+        opts.jid = raw_input("Email: ")
     if opts.password is None:
         opts.password = getpass.getpass("Password: ")
 
@@ -152,6 +153,8 @@ if __name__ == '__main__':
     # xmpp.ca_certs = "path/to/ca/cert"
 
     # Connect to the XMPP server and start processing XMPP stanzas.
+
+    print("attempting connection")
     if xmpp.connect():
         # If you do not have the dnspython library installed, you will need
         # to manually specify the name of the server if it does not match
