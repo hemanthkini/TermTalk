@@ -1,0 +1,18 @@
+import urwid
+
+# Create new threads
+thread1 = uiThread(1, "UI")
+thread2 = xmppThread(2, "xmpp")
+
+# Start new Threads
+thread2.start()
+thread1.start()
+
+# Add threads to thread list
+threads.append(thread1)
+threads.append(thread2)
+
+# Wait for all threads to complete
+for t in threads:
+    t.join()
+print "Exiting Main Thread"

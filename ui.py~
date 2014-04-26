@@ -1,0 +1,47 @@
+import urwid
+import urwid.raw_display
+import urwid.web_display
+
+def main():
+    text_trial = u"hello world"
+
+    div = urwid.Divider(".")
+
+    chatObj =  urwid.Padding(urwid.Text(text_trial),
+                             left =2, right =2, min_width=20),
+
+
+    text_edit_padding = ('editcp', u"Type: ")
+    editObj = urwid.Edit(text_edit_padding, "")
+
+
+
+    textEntry = urwid.Padding(urwid.AttrWrap(editObj,
+                             'editbx,', 'editfc'), left = 2,  width = 50)
+
+    listbox_content = [
+        div,
+        div,
+        chatObj,
+        textEntry]
+
+    listbox = urwid.ListBox(urwid.SimpleListWalker(listbox_content))
+
+    if urwid.web_display.is_web_request():
+        screen = urwid.web_display.Screen()
+    else:
+        screen = urwid.raw_display.Screen()
+
+
+    urwid.MainLoop(listbox).run()
+
+    pass
+
+def setup():
+    urwid.web_display.set_preferences("UI")
+    if urwid.web_display.handle_short_request():
+        return
+    main()
+
+if '__main__' == __name__ or urwid.web_display.is_web_request():
+    setup()

@@ -8,7 +8,11 @@ import threading
 from optparse import OptionParser
 
 import sleekxmpp
+import urwid
+import urwid.raw_display
+import urwid.web_display
 
+global xmpp
 
 # Python versions before 3.0 do not use UTF-8 encoding
 # by default. To ensure that Unicode is handled properly
@@ -24,8 +28,11 @@ roster = None
 live_message_dict = {}
 name_jid_map = []
 
+xmpplock = threading.Lock()
 
-class TermTalk(sleekxmpp.ClientXMPP, threading.Thread):
+currName = ""
+
+class TermTalk(sleekxmpp.ClientXMPP):
 
     """
     A simple SleekXMPP bot that will echo messages it
@@ -44,10 +51,13 @@ class TermTalk(sleekxmpp.ClientXMPP, threading.Thread):
 
         self.add_event_handler("print_roster", self.print_roster)
 
+        urwid.register_signal(self, ['new chats', 'new roster'])
+
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
         # MUC messages and error messages.
         self.add_event_handler("message", self.message)
+        xmpplock.release()
 
     def start(self, event):
         """
@@ -65,21 +75,20 @@ data.
         print("session_start was received; self.start was called")
         self.send_presence()
         self.get_roster()
-        self.send_msg()
         """ self.get_roster(callback=self.print_roster)
         print("CLIENT ROSTER:")
         print(self.client_roster) """
 
-    def print_roster(a, b):
-        print("OUR ROSTER: ")
-        print(roster)
+    def print_roster(self, b):
+        global roster
         for x in roster._jids:
             newmapping = []
             newmapping.append(x)
-            newmapping.append(str(get_name_or_jid(x)))
+            newmapping.append(str(self.get_name_or_jid(x)))
             name_jid_map.append(newmapping)
+        urwid.emit_signal(self, "new roster")
         return
- 
+
     """ for x in roster._jids:
     if x not in live_message_dict:
     live_message_dict[x] = []
@@ -88,23 +97,40 @@ data.
     del live_message_dict[x] """
 
     def get_names_list(self):
+        xmpplock.acquire()
         nameslist = []
         for i in name_jid_map:
             nameslist.append(i[1])
+        xmpplock.release()
         return nameslist
-        
+
+    def get_live_names_list(self):
+        xmpplock.acquire()
+        nameslist = []
+        for i in name_jid_map:
+            if i in live_message_dict:
+                nameslist.append(i[1])
+        xmpplock.release()
+        return nameslist
+
+    def add_name_live(self, name):
+        name = name.decode("utf-8")
+        if name not in roster._jids:
+            name = self.get_jid_for_name(name.encode("utf-8"))
+        if name not in live_message_dict:
+            live_message_dict[name] = []
+
     def get_jid_for_name(self, name):
         for i in name_jid_map:
             if i[1] == name:
                 return i[0]
         return None
-        
-    def get_jid_for_name(self, jid):
+
+    def get_name_for_jid(self, jid):
         for i in name_jid_map:
             if i[0] == jid:
                 return i[1]
         return None
-    
 
     def get_name_or_jid(self, name):
         name = name.decode("utf-8")
@@ -118,11 +144,12 @@ data.
         return msg["from"]
 
     def return_msg_history(self, name):
+        xmpplock.acquire()
         name = name.decode("utf-8")
+        newlist = []
         if name in live_message_dict:
             msglist = live_message_dict[name]
             newname = self.get_name_or_jid(name)
-            newlist = []
             for (isFromFriend, msg) in msglist:
                 if isFromFriend == 0:
                     currName = "Me"
@@ -131,8 +158,14 @@ data.
                 currName = currName.encode("utf-8")
                 currmsg = currName + ": " + msg
                 newlist.append(currmsg)
-            return newlist
-        return []
+        xmpplock.release()
+        return newlist
+
+    def send_curr_message(self, message):
+        xmpplock.acquire()
+        send_the_message(self.get_jid_for_name(name.encode("utf-8")), message)
+        xmpplock.release()
+
 
     def send_the_message(self, user, message):
         user = user.encode("utf-8")
@@ -170,39 +203,166 @@ how it may be used.
             print(type(msg["from"].bare))
             print(type(msg["body"]))
             self.insert_msg(msg["from"].bare, msg["body"], 1)
-            reply = raw_input("enter reply: ")
-            msg.reply(reply).send()
+            urwid.emit_signal(self, "new chats")
+
+            #reply = raw_input("enter reply: ")
+            #msg.reply(reply).send()
             #self.print_roster(False, False)
             #print("ROSTER : ")
             #print(roster)
-            print(live_message_dict)
+            #print(live_message_dict)
+
+def mainUI(friendsList, chateesList, chatHist):
+    xmpplock.acquire()
+    xmpplock.release()
+    print("entered mainUI")
+    div = urwid.Divider(".")
+    global xmpp
+    print("What is xmpp?")
+    print(type(globals()['xmpp']))
+    print(globals()['xmpp'])
+
+    xmpp = globals()['xmpp']
+
+    chatObj = urwid.Padding(urwid.Text(chatHist), left=2, right=10)
+
+    friendsText = urwid.Padding(urwid.Text("Your friends"), left=2, right=10)
+    chateeText = urwid.Padding(urwid.Text("Open chats"), left=2, right=10)
+
+    friendButtons = urwid.Pile([])
+    print("friendbuttons contents:")
+    print(friendButtons.contents)
+    chateeButtons = urwid.Pile(([]))
+
+    def redraw_chat_text():
+        for z in xmpp.get_live_names_list():
+            alreadyInList = False
+            for y in chateeButtons.contents:
+                if y.original_widget.original_widget.get_label() == z:
+                    alreadyInList = True
+            if (alreadyInList == False):
+                chateeButtons.contents.append((urwid.Padding(urwid.AttrWrap(urwid.Button(z, chateeButtonPress), 'buttn', 'buttnf'), left=5, right =10), ('weight', 1)))
+
+        chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName))
+        parsedHistory = chatHistParse(chatHist)
+        chatObj.original_widget.set_text = parsedHistory
+
+    def chateeButtonPress(button):
+        frame.header = urwid.AttrWrap(urwid.Text(
+                [u"Pressed: ", button.get_label()]), 'header')
+        currName = button.get_label()
+        chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName))
+        parsedHistory = chatHistParse(chatHist)
+        chatObj.original_widget.set_text = parsedHistory
+
+
+    def friendButtonPress(button):
+        frame.header = urwid.AttrWrap(urwid.Text(
+                [u"Pressed: ", button.get_label()]), 'header')
+        for x in chateeButtons.contents:
+            if x.original_widget.original_widget.get_label() == button.get_label():
+                return
+        chateeButtons.contents.append((urwid.Padding(urwid.AttrWrap(urwid.Button(button.get_label(), chateeButtonPress), 'buttn', 'buttnf'), left=5, right =10), ('weight', 1)))
+        xmpp.add_name_live(button.get_label())
+
+    def rosterRefresh():
+        friendButtons.contents.extend(
+            [(urwid.Padding(urwid.AttrWrap(urwid.Button(txt, friendButtonPress),
+                            'buttn', 'buttnf'),
+            left=5, right =10), ('weight', 1))
+             for txt in roster])
+
+    urwid.register_signal(TermTalk, ['new chats', 'new roster'])
+
+    urwid.connect_signal(xmpp, 'new chats', redraw_chat_text)
+    urwid.connect_signal(xmpp, 'new roster', rosterRefresh)
+
+    friend = urwid.Pile([friendsText, friendButtons])
+    chatee = urwid.Pile([chateeText, chateeButtons])
+
+    text_edit_padding = ('editcp', u"Type: ")
+    editObj = urwid.Edit(text_edit_padding, "")
+    textEntry = urwid.Padding(urwid.AttrWrap(editObj,
+                             'editbx,', 'editfc'), left = 2,  width = 50)
+
+    foot = urwid.Pile([div, textEntry])
+    allFriendsList = urwid.Columns([friend,  chatee])
+
+    listbox_content = [
+        div,
+        allFriendsList,
+        div,
+        chatObj]
+
+    listbox = urwid.ListBox(urwid.SimpleListWalker(listbox_content))
+
+    frame = urwid.Frame(urwid.AttrWrap(listbox,'body'), footer=foot)
+
+    if urwid.web_display.is_web_request():
+        screen = urwid.web_display.Screen()
+    else:
+        screen = urwid.raw_display.Screen()
+
+
+
+
+    def unhandled(key):
+        if key == "enter":
+            frame.header = urwid.AttrWrap(urwid.Text(
+                [u"Typed: ", editObj.text[6:]]), 'header')
+            #####instead call that function do that thing
+            #xmpp.send_curr_message(editObj.text[6:])
+
+
+    palette = [
+        ('buttnf', 'dark blue', "white", "bold"),
+        ('buttn', 'white', 'dark blue'),
+        ('header', 'white', 'dark cyan', 'bold')
+        ]
+
+    print("about to exit mainUI")
+    urwid.MainLoop(frame, palette, unhandled_input=unhandled).run()
+
+
+friends = ["Jack", "Aashish", "niki", "hemanth"]
+chatees = ["jack", "aashish"]
+#chatHist = "wowwwww\n now way\n how are you so cool?\n"
+chatHist = ["You: wowww", "Me: fjsdklf", "You: niki is so cool"]
+
+def chatHistParse(chatH):
+    s = ""
+    for x in xrange(len(chatH)):
+        s += chatH[x]
+        s+= "\n"
+    return s
 
 
 class uiThread (threading.Thread):
-    def __init__(self, threadID, name, xmpp):
+    def __init__(self, threadID, name, q):
         threading.Thread.__init__(self)
+        print("called init in uiThread!")
         self.threadID = threadID
         self.name = name
-        self.xmpp = xmpp
-
-    def send_msg(self):
-        user = raw_input("enter email: ")
-        message = raw_input("enter msg: ")
-        self.xmpp.send_the_message(user, message)
-        self.send_msg()
+        self.q = q
 
     def run(self):
-        print "Starting " + self.name
-        self.send_msg()
+        urwid.web_display.set_preferences("UI")
+        if urwid.web_display.handle_short_request():
+            return
+        mainUI(friends, chatees, chatHistParse(chatHist))
+
 
 class xmppThread (threading.Thread):
-    def __init__(self, threadID, name, ui):
+    def __init__(self, threadID, name, q):
         threading.Thread.__init__(self)
+        print("called init in xmppThread!")
         self.threadID = threadID
         self.name = name
-        self.ui = ui
+        self.q = q
+
     def run(self):
         # Setup the command line arguments.
+        xmpplock.acquire()
         optp = OptionParser()
 
         # Output verbosity options.
@@ -236,6 +396,8 @@ class xmppThread (threading.Thread):
         # Setup the EchoBot and register plugins. Note that while plugins may
         # have interdependencies, the order in which you register them does
         # not matter.
+
+        global xmpp
         xmpp = TermTalk(opts.jid, opts.password)
         xmpp.register_plugin('xep_0030') # Service Discovery
         xmpp.register_plugin('xep_0004') # Data Forms
@@ -273,6 +435,7 @@ class xmppThread (threading.Thread):
             #
             # if xmpp.connect(('talk.google.com', 5222)):
             # ...
+            global roster
             roster = xmpp.client_roster
             # xmpp.send_msg()
             xmpp.process(block=True)
@@ -280,17 +443,15 @@ class xmppThread (threading.Thread):
         else:
             print("Unable to connect.")
 
-
-
 threads = []
 
 # Create new threads
-thread1 = uiThread(1, "UI", 1)
 thread2 = xmppThread(2, "xmpp", 2)
+thread1 = uiThread(1, "UI", 1)
 
 # Start new Threads
-thread1.start()
 thread2.start()
+thread1.start()
 
 # Add threads to thread list
 threads.append(thread1)
