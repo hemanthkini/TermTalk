@@ -12,7 +12,9 @@ import urwid
 import urwid.raw_display
 import urwid.web_display
 
-xmpp = None
+global xmpp
+
+global write_fd
 
 debug = 0
 
@@ -194,7 +196,9 @@ data.
         if (len(msglist) >= 50):
             msglist.pop(0)
         msglist.append((isFromFriend, msg))
-        urwid.emit_signal(self, "new chats")
+        global write_fd
+        write(write_fd, "Updated")
+#        urwid.emit_signal(self, "new chats")
 
 
     def message(self, msg):
@@ -233,7 +237,7 @@ def mainUI(friendsList, chateesList, chatHist):
     debugger_print(type(globals()['xmpp']))
     debugger_print(globals()['xmpp'])
 
-    global xmpp
+    xmpp = globals()['xmpp']
 
     chatObj = urwid.Padding(urwid.Text(chatHist), left=2, right=10)
 
@@ -245,7 +249,7 @@ def mainUI(friendsList, chateesList, chatHist):
     debugger_print(friendButtons.contents)
     chateeButtons = urwid.Pile(([]))
 
-    def redraw_chat_text():
+    def redraw_chat_text(data):
         frame.header = urwid.AttrWrap(urwid.Text(
                 [u"Redrawing chat text"]), 'header')
         for z in xmpp.get_live_names_list():
@@ -264,6 +268,9 @@ def mainUI(friendsList, chateesList, chatHist):
                 [u"Got stuff for ", currName]), 'header')
         parsedHistory = chatHistParse(chatHist)
         chatObj.original_widget.set_text(parsedHistory)
+
+    global write_fd
+    write_fd = loop.watch_pipe(redraw_chat_text)
 
     def chateeButtonPress(button):
         frame.header = urwid.AttrWrap(urwid.Text(
@@ -474,6 +481,7 @@ class xmppThread (threading.Thread):
         else:
             debugger_print("Unable to connect.")
 
+
 threads = []
 
 # Create new threads
@@ -495,3 +503,4 @@ mainUI(friends, chatees, chatHistParse(chatHist))
 for t in threads:
     t.join()
 print "Exiting Main Thread"
+
