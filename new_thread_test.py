@@ -1,6 +1,6 @@
 import threading
 import time
-
+import os
 import sys
 import logging
 import getpass
@@ -197,7 +197,8 @@ data.
             msglist.pop(0)
         msglist.append((isFromFriend, msg))
         global write_fd
-        write(write_fd, "Updated")
+        if (write_fd != None):
+            os.write(write_fd, "Updated")
 #        urwid.emit_signal(self, "new chats")
 
 
@@ -270,7 +271,6 @@ def mainUI(friendsList, chateesList, chatHist):
         chatObj.original_widget.set_text(parsedHistory)
 
     global write_fd
-    write_fd = loop.watch_pipe(redraw_chat_text)
 
     def chateeButtonPress(button):
         frame.header = urwid.AttrWrap(urwid.Text(
@@ -348,7 +348,7 @@ def mainUI(friendsList, chateesList, chatHist):
             else:
                 frame.header = urwid.AttrWrap(urwid.Text(
                 [u"currName?: ", currName]), 'header')
-
+            editObj.set_edit_text("")
 
 
     palette = [
@@ -358,9 +358,10 @@ def mainUI(friendsList, chateesList, chatHist):
         ]
 
     debugger_print("about to exit mainUI")
-    urwid.MainLoop(frame, palette, unhandled_input=unhandled).run()
-
-
+    loop = urwid.MainLoop(frame, palette, unhandled_input=unhandled)
+    write_fd = loop.watch_pipe(redraw_chat_text)
+    loop.run()
+    exit()
 friends = ["Jack", "Aashish", "niki", "hemanth"]
 chatees = ["jack", "aashish"]
 #chatHist = "wowwwww\n now way\n how are you so cool?\n"
@@ -503,4 +504,4 @@ mainUI(friends, chatees, chatHistParse(chatHist))
 for t in threads:
     t.join()
 print "Exiting Main Thread"
-
+exit()
