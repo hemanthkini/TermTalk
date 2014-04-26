@@ -16,6 +16,7 @@ from optparse import OptionParser
 
 import sleekxmpp
 
+
 # Python versions before 3.0 do not use UTF-8 encoding
 # by default. To ensure that Unicode is handled properly
 # throughout SleekXMPP, we will set the default encoding
@@ -27,6 +28,9 @@ else:
     raw_input = input
 
 roster = None
+live_message_dict = {}
+
+
 
 class TermTalk(sleekxmpp.ClientXMPP):
 
@@ -44,6 +48,8 @@ class TermTalk(sleekxmpp.ClientXMPP):
         # listen for this event so that we we can initialize
         # our roster.
         self.add_event_handler("session_start", self.start)
+
+        self.add_event_handler("print_roster", self.print_roster)
 
         # The message event is triggered whenever a message
         # stanza is received. Be aware that that includes
@@ -63,13 +69,51 @@ event -- An empty dictionary. The session_start
 event does not provide any additional
 data.
 """
+        print("session_start was received; self.start was called")
         self.send_presence()
         self.get_roster()
+        self.send_msg()
+        """ self.get_roster(callback=self.print_roster)
+        print("CLIENT ROSTER:")
+        print(self.client_roster) """
+
+    def print_roster(a, b):
+        print("OUR ROSTER: ")
+        print(roster)
+"""        for x in roster._jids:
+            if x not in live_message_dict:
+                live_message_dict[x] = []
+        for x in live_message_dict:
+            if x not in roster._jids:
+                del live_message_dict[x] """
 
     def roster_search_name(self, msg):
         if roster.has_jid(msg["from"].bare):
            return str(roster._jids[msg["from"].bare]["name"])
-        return None
+        return msg["from"]
+
+    def send_msg(self):
+        user = raw_input("enter email: ")
+        message = raw_input("enter msg: ")
+        self.send_the_message(user, message)
+        self.send_msg()
+
+    def send_the_message(self, user, message):
+        user = user.encode("utf-8")
+        message = message.encode("utf-8")
+        self.insert_msg(self, user.decode("utf-8"), message, 0)
+        self.send_message(mto=user, mbody=message, mtype = "chat")
+
+    def insert_msg(self, name, msg, isFromFriend):
+        name = name.decode("utf-8")
+        msg = msg.encode("utf-8")
+        if name not in live_message_dict:
+            live_message_dict[name] = []
+        msglist = live_message_dict[name]
+        if (len(msglist) >= 50):
+            msglist.pop(0)
+        msglist.append((isFromFriend, msg))
+
 
     def message(self, msg):
         """
@@ -83,10 +127,21 @@ msg -- The received message stanza. See the documentation
 for stanza objects and the Message stanza to see
 how it may be used.
 """
+        print("General received stanza")
+        print(msg)
         if msg['type'] in ('chat', 'normal'):
             print(self.roster_search_name(msg) + ":  " + msg["body"])
+            print(type(msg["from"].bare))
+            print(type(msg["body"]))
+            self.insert_msg(msg["from"].bare, msg["body"], 1)
             reply = raw_input("enter reply: ")
             msg.reply(reply).send()
+            #self.print_roster(False, False)
+            #print("ROSTER : ")
+            #print(roster)
+            print(live_message_dict)
+
+
 
 
 if __name__ == '__main__':
@@ -162,7 +217,10 @@ if __name__ == '__main__':
         # if xmpp.connect(('talk.google.com', 5222)):
         # ...
         roster = xmpp.client_roster
+        # xmpp.send_msg()
         xmpp.process(block=True)
         print("Done")
     else:
         print("Unable to connect.")
+
+
