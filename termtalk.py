@@ -29,7 +29,7 @@ else:
 
 roster = None
 live_message_dict = {}
-
+name_jid_map = []
 
 
 class TermTalk(sleekxmpp.ClientXMPP):
@@ -80,6 +80,11 @@ data.
     def print_roster(a, b):
         print("OUR ROSTER: ")
         print(roster)
+        for x in roster._jids:
+            newmapping = []
+            newmapping.append(x)
+            newmapping.append(str(get_name_or_jid(x)))
+            name_jid_map.append(newmapping)
 """        for x in roster._jids:
             if x not in live_message_dict:
                 live_message_dict[x] = []
@@ -87,10 +92,52 @@ data.
             if x not in roster._jids:
                 del live_message_dict[x] """
 
+    def get_names_list(self)
+        nameslist = []
+        for i in name_jid_map:
+            nameslist.append(i[1])
+        return nameslist
+        
+    def get_jid_for_name(self, name)
+        for i in name_jid_map:
+            if i[1] == name:
+                return i[0]
+        return None
+        
+    def get_jid_for_name(self, jid)
+        for i in name_jid_map:
+            if i[0] == jid:
+                return i[1]
+        return None
+    
+
+    def get_name_or_jid(self, name)
+        name = name.decode("utf-8")
+        if roster.has_jid(name):
+            return str(roster._jids[name]["name"])
+        return name
+
     def roster_search_name(self, msg):
         if roster.has_jid(msg["from"].bare):
            return str(roster._jids[msg["from"].bare]["name"])
         return msg["from"]
+
+    def return_msg_history(self, name):
+        name = name.decode("utf-8")
+        if name in live_message_dict:
+            msglist = live_message_dict[name]
+            newname = self.get_name_or_jid(name)
+            newlist = []
+            for (isFromFriend, msg) in msglist:
+                if isFromFriend == 0:
+                    currName = "Me"
+                else:
+                    currName = newname
+                currName = currName.encode("utf-8")
+                currmsg = currName + ": " + msg
+                newlist.append(currmsg)
+            return newlist
+        return []
 
     def send_msg(self):
         user = raw_input("enter email: ")
