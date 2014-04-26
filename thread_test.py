@@ -1,13 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-SleekXMPP: The Sleek XMPP Library
-Copyright (C) 2010 Nathanael C. Fritz
-This file is part of SleekXMPP.
-
-See the file LICENSE for copying permission.
-"""
+import threading
+import time
 
 import sys
 import logging
@@ -142,12 +134,6 @@ data.
             return newlist
         return []
 
-    def send_msg(self):
-        user = raw_input("enter email: ")
-        message = raw_input("enter msg: ")
-        self.send_the_message(user, message)
-        self.send_msg()
-
     def send_the_message(self, user, message):
         user = user.encode("utf-8")
         message = message.encode("utf-8")
@@ -192,84 +178,125 @@ how it may be used.
             print(live_message_dict)
 
 
+class uiThread (threading.Thread):
+    def __init__(self, threadID, name, xmpp):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.xmpp = xmpp
+
+    def send_msg(self):
+        user = raw_input("enter email: ")
+        message = raw_input("enter msg: ")
+        self.xmpp.send_the_message(user, message)
+        self.send_msg()
+
+    def run(self):
+        print "Starting " + self.name
+        self.send_msg()
+
+class xmppThread (threading.Thread):
+    def __init__(self, threadID, name, ui):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+        self.ui = ui
+    def run(self):
+        # Setup the command line arguments.
+        optp = OptionParser()
+
+        # Output verbosity options.
+        optp.add_option('-q', '--quiet', help='set logging to ERROR',
+                        action='store_const', dest='loglevel',
+                        const=logging.ERROR, default=logging.INFO)
+        optp.add_option('-d', '--debug', help='set logging to DEBUG',
+                        action='store_const', dest='loglevel',
+                        const=logging.DEBUG, default=logging.INFO)
+        optp.add_option('-v', '--verbose', help='set logging to COMM',
+                        action='store_const', dest='loglevel',
+                        const=5, default=logging.INFO)
+
+        # JID and password options.
+        optp.add_option("-j", "--jid", dest="jid",
+                        help="JID to use")
+        optp.add_option("-p", "--password", dest="password",
+                        help="password to use")
+
+        opts, args = optp.parse_args()
+
+        # Setup logging.
+        logging.basicConfig(level=opts.loglevel,
+                            format='%(levelname)-8s %(message)s')
+
+        if opts.jid is None:
+            opts.jid = raw_input("Email: ")
+        if opts.password is None:
+            opts.password = getpass.getpass("Password: ")
+
+        # Setup the EchoBot and register plugins. Note that while plugins may
+        # have interdependencies, the order in which you register them does
+        # not matter.
+        xmpp = TermTalk(opts.jid, opts.password)
+        xmpp.register_plugin('xep_0030') # Service Discovery
+        xmpp.register_plugin('xep_0004') # Data Forms
+        xmpp.register_plugin('xep_0060') # PubSub
+        xmpp.register_plugin('xep_0199') # XMPP Ping
+
+        # If you are connecting to Facebook and wish to use the
+        # X-FACEBOOK-PLATFORM authentication mechanism, you will need
+        # your API key and an access token. Then you'll set:
+        # xmpp.credentials['api_key'] = 'THE_API_KEY'
+        # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
+
+        # If you are connecting to MSN, then you will need an
+        # access token, and it does not matter what JID you
+        # specify other than that the domain is 'messenger.live.com',
+        # so '_@messenger.live.com' will work. You can specify
+        # the access token as so:
+        # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
+
+        # If you are working with an OpenFire server, you may need
+        # to adjust the SSL version used:
+        # xmpp.ssl_version = ssl.PROTOCOL_SSLv3
+
+        # If you want to verify the SSL certificates offered by a server:
+        # xmpp.ca_certs = "path/to/ca/cert"
+
+        # Connect to the XMPP server and start processing XMPP stanzas.
+
+        print("attempting connection")
+        if xmpp.connect():
+            # If you do not have the dnspython library installed, you will need
+            # to manually specify the name of the server if it does not match
+            # the one in the JID. For example, to use Google Talk you would
+            # need to use:
+            #
+            # if xmpp.connect(('talk.google.com', 5222)):
+            # ...
+            roster = xmpp.client_roster
+            # xmpp.send_msg()
+            xmpp.process(block=True)
+            print("Done")
+        else:
+            print("Unable to connect.")
 
 
-if __name__ == '__main__':
-    # Setup the command line arguments.
-    optp = OptionParser()
 
-    # Output verbosity options.
-    optp.add_option('-q', '--quiet', help='set logging to ERROR',
-                    action='store_const', dest='loglevel',
-                    const=logging.ERROR, default=logging.INFO)
-    optp.add_option('-d', '--debug', help='set logging to DEBUG',
-                    action='store_const', dest='loglevel',
-                    const=logging.DEBUG, default=logging.INFO)
-    optp.add_option('-v', '--verbose', help='set logging to COMM',
-                    action='store_const', dest='loglevel',
-                    const=5, default=logging.INFO)
+threads = []
 
-    # JID and password options.
-    optp.add_option("-j", "--jid", dest="jid",
-                    help="JID to use")
-    optp.add_option("-p", "--password", dest="password",
-                    help="password to use")
+# Create new threads
+thread1 = uiThread(1, "UI", 1)
+thread2 = xmppThread(2, "xmpp", 2)
 
-    opts, args = optp.parse_args()
+# Start new Threads
+thread1.start()
+thread2.start()
 
-    # Setup logging.
-    logging.basicConfig(level=opts.loglevel,
-                        format='%(levelname)-8s %(message)s')
+# Add threads to thread list
+threads.append(thread1)
+threads.append(thread2)
 
-    if opts.jid is None:
-        opts.jid = raw_input("Email: ")
-    if opts.password is None:
-        opts.password = getpass.getpass("Password: ")
-
-    # Setup the EchoBot and register plugins. Note that while plugins may
-    # have interdependencies, the order in which you register them does
-    # not matter.
-    xmpp = TermTalk(opts.jid, opts.password)
-    xmpp.register_plugin('xep_0030') # Service Discovery
-    xmpp.register_plugin('xep_0004') # Data Forms
-    xmpp.register_plugin('xep_0060') # PubSub
-    xmpp.register_plugin('xep_0199') # XMPP Ping
-
-    # If you are connecting to Facebook and wish to use the
-    # X-FACEBOOK-PLATFORM authentication mechanism, you will need
-    # your API key and an access token. Then you'll set:
-    # xmpp.credentials['api_key'] = 'THE_API_KEY'
-    # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
-
-    # If you are connecting to MSN, then you will need an
-    # access token, and it does not matter what JID you
-    # specify other than that the domain is 'messenger.live.com',
-    # so '_@messenger.live.com' will work. You can specify
-    # the access token as so:
-    # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
-
-    # If you are working with an OpenFire server, you may need
-    # to adjust the SSL version used:
-    # xmpp.ssl_version = ssl.PROTOCOL_SSLv3
-
-    # If you want to verify the SSL certificates offered by a server:
-    # xmpp.ca_certs = "path/to/ca/cert"
-
-    # Connect to the XMPP server and start processing XMPP stanzas.
-
-    print("attempting connection")
-    if xmpp.connect():
-        # If you do not have the dnspython library installed, you will need
-        # to manually specify the name of the server if it does not match
-        # the one in the JID. For example, to use Google Talk you would
-        # need to use:
-        #
-        # if xmpp.connect(('talk.google.com', 5222)):
-        # ...
-        roster = xmpp.client_roster
-        # xmpp.send_msg()
-        xmpp.process(block=True)
-        print("Done")
-    else:
-        print("Unable to connect.")
-
+# Wait for all threads to complete
+for t in threads:
+    t.join()
+print "Exiting Main Thread"
