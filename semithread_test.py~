@@ -14,8 +14,6 @@ import urwid.web_display
 
 global xmpp
 
-debug = 0
-
 # Python versions before 3.0 do not use UTF-8 encoding
 # by default. To ensure that Unicode is handled properly
 # throughout SleekXMPP, we will set the default encoding
@@ -25,11 +23,6 @@ if sys.version_info < (3, 0):
     setdefaultencoding('utf8')
 else:
     raw_input = input
-
-def debugger_print(msg):
-    if (debug == 1):
-        print(msg)
-
 
 roster = None
 live_message_dict = {}
@@ -79,7 +72,7 @@ event -- An empty dictionary. The session_start
 event does not provide any additional
 data.
 """
-        debugger_print("session_start was received; self.start was called")
+        print("session_start was received; self.start was called")
         self.send_presence()
         self.get_roster()
         """ self.get_roster(callback=self.print_roster)
@@ -203,12 +196,12 @@ msg -- The received message stanza. See the documentation
 for stanza objects and the Message stanza to see
 how it may be used.
 """
-        debugger_print("General received stanza")
-        debugger_print(msg)
+        print("General received stanza")
+        print(msg)
         if msg['type'] in ('chat', 'normal'):
-            debugger_print(self.roster_search_name(msg) + ":  " + msg["body"])
-            debugger_print(type(msg["from"].bare))
-            debugger_print(type(msg["body"]))
+            print(self.roster_search_name(msg) + ":  " + msg["body"])
+            print(type(msg["from"].bare))
+            print(type(msg["body"]))
             self.insert_msg(msg["from"].bare, msg["body"], 1)
             urwid.emit_signal(self, "new chats")
 
@@ -433,7 +426,7 @@ class xmppThread (threading.Thread):
 
         # Connect to the XMPP server and start processing XMPP stanzas.
 
-        debugger_print("attempting connection")
+        print("attempting connection")
         if xmpp.connect():
             # If you do not have the dnspython library installed, you will need
             # to manually specify the name of the server if it does not match
@@ -446,22 +439,19 @@ class xmppThread (threading.Thread):
             roster = xmpp.client_roster
             # xmpp.send_msg()
             xmpp.process(block=True)
-#            print("Done")
+            print("Done")
         else:
-#            print("Unable to connect.")
+            print("Unable to connect.")
 
 threads = []
 
 # Create new threads
 thread2 = xmppThread(2, "xmpp", 2)
-thread1 = uiThread(1, "UI", 1)
 
 # Start new Threads
 thread2.start()
-thread1.start()
 
 # Add threads to thread list
-threads.append(thread1)
 threads.append(thread2)
 
 # Wait for all threads to complete

@@ -83,8 +83,8 @@ data.
         self.send_presence()
         self.get_roster()
         """ self.get_roster(callback=self.print_roster)
-        print("CLIENT ROSTER:")
-        print(self.client_roster) """
+        debugger_print("CLIENT ROSTER:")
+        debugger_print(self.client_roster) """
 
     def print_roster(self, b):
         global roster
@@ -106,17 +106,17 @@ data.
     def get_names_list(self):
         xmpplock.acquire()
         nameslist = []
-        for i in name_jid_map:
-            nameslist.append(i[1])
+        for [i, j] in name_jid_map:
+            nameslist.append(i)
         xmpplock.release()
         return nameslist
 
     def get_live_names_list(self):
         xmpplock.acquire()
         nameslist = []
-        for i in name_jid_map:
+        for [i, j] in name_jid_map:
             if i in live_message_dict:
-                nameslist.append(i[1])
+                nameslist.append(i)
         xmpplock.release()
         return nameslist
 
@@ -145,6 +145,7 @@ data.
             return str(roster._jids[name]["name"])
         return name
 
+
     def roster_search_name(self, msg):
         if roster.has_jid(msg["from"].bare):
            return str(roster._jids[msg["from"].bare]["name"])
@@ -159,26 +160,30 @@ data.
             newname = self.get_name_or_jid(name)
             for (isFromFriend, msg) in msglist:
                 if isFromFriend == 0:
-                    currName = "Me"
+                    currNameHere = "Me"
                 else:
-                    currName = newname
-                currName = currName.encode("utf-8")
-                currmsg = currName + ": " + msg
+                    currNameHere = newname
+                currNameHere = currNameHere.encode("utf-8")
+                currmsg = currNameHere + ": " + msg
                 newlist.append(currmsg)
         xmpplock.release()
         return newlist
 
     def send_curr_message(self, message):
         xmpplock.acquire()
-        send_the_message(self.get_jid_for_name(name.encode("utf-8")), message)
+        if (self.get_name_for_jid(currName.decode("utf-8")) != None):
+            self.send_the_message(currName.decode("utf-8"), message)
+        else:
+            self.send_the_message(self.get_jid_for_name(currName.encode("utf-8")), message)
         xmpplock.release()
 
 
     def send_the_message(self, user, message):
         user = user.encode("utf-8")
         message = message.encode("utf-8")
-        self.insert_msg(user.decode("utf-8"), message, 0)
         self.send_message(mto=user, mbody=message, mtype = "chat")
+        self.insert_msg(user.decode("utf-8"), message, 0)
+
 
     def insert_msg(self, name, msg, isFromFriend):
         name = name.decode("utf-8")
@@ -189,6 +194,7 @@ data.
         if (len(msglist) >= 50):
             msglist.pop(0)
         msglist.append((isFromFriend, msg))
+        urwid.emit_signal(self, "new chats")
 
 
     def message(self, msg):
@@ -210,24 +216,22 @@ how it may be used.
             debugger_print(type(msg["from"].bare))
             debugger_print(type(msg["body"]))
             self.insert_msg(msg["from"].bare, msg["body"], 1)
-            urwid.emit_signal(self, "new chats")
 
             #reply = raw_input("enter reply: ")
             #msg.reply(reply).send()
             #self.print_roster(False, False)
-            #print("ROSTER : ")
-            #print(roster)
-            #print(live_message_dict)
+            #debugger_print("ROSTER : ")
+            #debugger_print(roster)
+            #debugger_print(live_message_dict)
 
 def mainUI(friendsList, chateesList, chatHist):
     xmpplock.acquire()
     xmpplock.release()
-    print("entered mainUI")
+    debugger_print("entered mainUI")
     div = urwid.Divider(".")
-    global xmpp
-    print("What is xmpp?")
-    print(type(globals()['xmpp']))
-    print(globals()['xmpp'])
+    debugger_print("What is xmpp?")
+    debugger_print(type(globals()['xmpp']))
+    debugger_print(globals()['xmpp'])
 
     xmpp = globals()['xmpp']
 
@@ -237,36 +241,49 @@ def mainUI(friendsList, chateesList, chatHist):
     chateeText = urwid.Padding(urwid.Text("Open chats"), left=2, right=10)
 
     friendButtons = urwid.Pile([])
-    print("friendbuttons contents:")
-    print(friendButtons.contents)
+    debugger_print("friendbuttons contents:")
+    debugger_print(friendButtons.contents)
     chateeButtons = urwid.Pile(([]))
 
     def redraw_chat_text():
+        frame.header = urwid.AttrWrap(urwid.Text(
+                [u"Redrawing chat text"]), 'header')
         for z in xmpp.get_live_names_list():
             alreadyInList = False
-            for y in chateeButtons.contents:
+            for (y, r) in chateeButtons.contents:
                 if y.original_widget.original_widget.get_label() == z:
                     alreadyInList = True
             if (alreadyInList == False):
                 chateeButtons.contents.append((urwid.Padding(urwid.AttrWrap(urwid.Button(z, chateeButtonPress), 'buttn', 'buttnf'), left=5, right =10), ('weight', 1)))
-
-        chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName))
+        global currName
+        if (xmpp.get_name_for_jid(currName.decode('utf-8')) != None):
+            chatHist = xmpp.return_msg_history(currName.decode('utf-8'))
+        else:
+            chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName.encode('utf-8')))
+        frame.header = urwid.AttrWrap(urwid.Text(
+                [u"Got stuff for ", currName]), 'header')
         parsedHistory = chatHistParse(chatHist)
-        chatObj.original_widget.set_text = parsedHistory
+        chatObj.original_widget.set_text(parsedHistory)
 
     def chateeButtonPress(button):
         frame.header = urwid.AttrWrap(urwid.Text(
                 [u"Pressed: ", button.get_label()]), 'header')
+        global currName
         currName = button.get_label()
-        chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName))
+        debugger_print(currName)
+        debugger_print(type(currName))
+        if (xmpp.get_name_for_jid(currName.decode('utf-8')) != None):
+            chatHist = xmpp.return_msg_history(currName.decode('utf-8'))
+        else:
+            chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName.encode('utf-8')))
         parsedHistory = chatHistParse(chatHist)
-        chatObj.original_widget.set_text = parsedHistory
+        chatObj.original_widget.set_text(parsedHistory)
 
 
     def friendButtonPress(button):
         frame.header = urwid.AttrWrap(urwid.Text(
                 [u"Pressed: ", button.get_label()]), 'header')
-        for x in chateeButtons.contents:
+        for (x, r) in chateeButtons.contents:
             if x.original_widget.original_widget.get_label() == button.get_label():
                 return
         chateeButtons.contents.append((urwid.Padding(urwid.AttrWrap(urwid.Button(button.get_label(), chateeButtonPress), 'buttn', 'buttnf'), left=5, right =10), ('weight', 1)))
@@ -274,10 +291,10 @@ def mainUI(friendsList, chateesList, chatHist):
 
     def rosterRefresh():
         friendButtons.contents.extend(
-            [(urwid.Padding(urwid.AttrWrap(urwid.Button(txt, friendButtonPress),
+            [(urwid.Padding(urwid.AttrWrap(urwid.Button(jid, friendButtonPress),
                             'buttn', 'buttnf'),
             left=5, right =10), ('weight', 1))
-             for txt in roster])
+             for [jid, name] in name_jid_map])
 
     urwid.register_signal(TermTalk, ['new chats', 'new roster'])
 
@@ -318,7 +335,13 @@ def mainUI(friendsList, chateesList, chatHist):
             frame.header = urwid.AttrWrap(urwid.Text(
                 [u"Typed: ", editObj.text[6:]]), 'header')
             #####instead call that function do that thing
-            #xmpp.send_curr_message(editObj.text[6:])
+            global currName
+            if currName != None and currName != "":
+                xmpp.send_curr_message(editObj.text[6:])
+            else:
+                frame.header = urwid.AttrWrap(urwid.Text(
+                [u"currName?: ", currName]), 'header')
+
 
 
     palette = [
@@ -327,7 +350,7 @@ def mainUI(friendsList, chateesList, chatHist):
         ('header', 'white', 'dark cyan', 'bold')
         ]
 
-    print("about to exit mainUI")
+    debugger_print("about to exit mainUI")
     urwid.MainLoop(frame, palette, unhandled_input=unhandled).run()
 
 
@@ -344,10 +367,10 @@ def chatHistParse(chatH):
     return s
 
 
-class uiThread (threading.Thread):
+"""class uiThread (threading.Thread):
     def __init__(self, threadID, name, q):
         threading.Thread.__init__(self)
-        print("called init in uiThread!")
+        debugger_print("called init in uiThread!")
         self.threadID = threadID
         self.name = name
         self.q = q
@@ -357,19 +380,20 @@ class uiThread (threading.Thread):
         if urwid.web_display.handle_short_request():
             return
         mainUI(friends, chatees, chatHistParse(chatHist))
+"""
 
 
 class xmppThread (threading.Thread):
     def __init__(self, threadID, name, q):
+        xmpplock.acquire()
         threading.Thread.__init__(self)
-        print("called init in xmppThread!")
+        debugger_print("called init in xmppThread!")
         self.threadID = threadID
         self.name = name
         self.q = q
 
     def run(self):
         # Setup the command line arguments.
-        xmpplock.acquire()
         optp = OptionParser()
 
         # Output verbosity options.
@@ -446,25 +470,29 @@ class xmppThread (threading.Thread):
             roster = xmpp.client_roster
             # xmpp.send_msg()
             xmpp.process(block=True)
-#            print("Done")
+            debugger_print("Done")
         else:
-#            print("Unable to connect.")
+            debugger_print("Unable to connect.")
 
 threads = []
 
 # Create new threads
 thread2 = xmppThread(2, "xmpp", 2)
-thread1 = uiThread(1, "UI", 1)
 
 # Start new Threads
 thread2.start()
-thread1.start()
 
 # Add threads to thread list
-threads.append(thread1)
 threads.append(thread2)
+
+urwid.web_display.set_preferences("UI")
+if urwid.web_display.handle_short_request():
+    exit()
+mainUI(friends, chatees, chatHistParse(chatHist))
+
 
 # Wait for all threads to complete
 for t in threads:
     t.join()
 print "Exiting Main Thread"
+
