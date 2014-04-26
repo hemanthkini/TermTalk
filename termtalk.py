@@ -99,7 +99,17 @@ data.
         return nameslist
         
     def get_jid_for_name(self, name)
+        for i in name_jid_map:
+            if i[1] == name:
+                return i[0]
+        return None
         
+    def get_jid_for_name(self, jid)
+        for i in name_jid_map:
+            if i[0] == jid:
+                return i[1]
+        return None
+    
 
     def get_name_or_jid(self, name)
         name = name.decode("utf-8")
