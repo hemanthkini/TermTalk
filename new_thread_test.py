@@ -198,7 +198,7 @@ data.
         if name not in live_message_dict:
             live_message_dict[name] = []
         msglist = live_message_dict[name]
-        if (len(msglist) >= 50):
+        if (len(msglist) >= 20):
             msglist.pop(0)
         msglist.append((isFromFriend, msg))
         global write_fd
@@ -372,7 +372,7 @@ def mainUI(friendsList, chateesList, chatHist):
 friends = ["Jack", "Aashish", "niki", "hemanth"]
 chatees = ["jack", "aashish"]
 #chatHist = "wowwwww\n now way\n how are you so cool?\n"
-chatHist = ["You: wowww", "Me: fjsdklf", "You: niki is so cool"]
+chatHist = ["Pick a chat at the top-left to add it to your open chats at the right.", "Pick a chat on the top-right to chat."]
 
 def chatHistParse(chatH):
     s = ""
