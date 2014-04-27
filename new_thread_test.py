@@ -91,10 +91,15 @@ data.
     def print_roster(self, b):
         global roster
         for x in roster._jids:
-            newmapping = []
-            newmapping.append(x)
-            newmapping.append(str(self.get_name_or_jid(x)))
-            name_jid_map.append(newmapping)
+            isInMapping = False
+            for [jid, y] in name_jid_map:
+                if jid == x:
+                    isInMapping = True
+            if isInMapping == False:
+                newmapping = []
+                newmapping.append(x)
+                newmapping.append(str(self.get_name_or_jid(x)))
+                name_jid_map.append(newmapping)
         urwid.emit_signal(self, "new roster")
         return
 
@@ -297,11 +302,13 @@ def mainUI(friendsList, chateesList, chatHist):
         xmpp.add_name_live(button.get_label())
 
     def rosterRefresh():
+        friendButtons.contents = []
         friendButtons.contents.extend(
             [(urwid.Padding(urwid.AttrWrap(urwid.Button(jid, friendButtonPress),
                             'buttn', 'buttnf'),
             left=5, right =10), ('weight', 1))
              for [jid, name] in name_jid_map])
+
 
     urwid.register_signal(TermTalk, ['new chats', 'new roster'])
 
