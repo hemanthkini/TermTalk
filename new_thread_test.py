@@ -18,6 +18,9 @@ write_fd = None
 
 debug = 0
 
+global_width = 50
+global_height = 10
+
 # Python versions before 3.0 do not use UTF-8 encoding
 # by default. To ensure that Unicode is handled properly
 # throughout SleekXMPP, we will set the default encoding
@@ -198,7 +201,7 @@ data.
         if name not in live_message_dict:
             live_message_dict[name] = []
         msglist = live_message_dict[name]
-        if (len(msglist) >= 20):
+        if (len(msglist) >= 50):
             msglist.pop(0)
         msglist.append((isFromFriend, msg))
         global write_fd
@@ -272,7 +275,19 @@ def mainUI(friendsList, chateesList, chatHist):
             chatHist = xmpp.return_msg_history(xmpp.get_jid_for_name(currName.encode('utf-8')))
         frame.header = urwid.AttrWrap(urwid.Text(
                 [u"Got stuff for ", currName]), 'header')
-        parsedHistory = chatHistParse(chatHist)
+
+        #resizing the list of chats' hackery here
+        newChatHist = None
+        effectiveLen = len(chatHist)
+        print(chatObj.width)
+        lenOfRows = global_height
+        if (effectiveLen <= lenOfRows):
+            newChatHist = chatHist
+        else:
+            lenOfRows = 0 - lenOfRows
+            newChatHist = chatHist[lenOfRows:]
+
+        parsedHistory = chatHistParse(newChatHist)
         chatObj.original_widget.set_text(parsedHistory)
 
     global write_fd
@@ -321,7 +336,7 @@ def mainUI(friendsList, chateesList, chatHist):
     text_edit_padding = ('editcp', u"Type: ")
     editObj = urwid.Edit(text_edit_padding, "")
     textEntry = urwid.Padding(urwid.AttrWrap(editObj,
-                             'editbx,', 'editfc'), left = 2,  width = 50)
+                             'editbx,', 'editfc'), left = 2,  width = global_width)
 
     foot = urwid.Pile([div, textEntry])
     allFriendsList = urwid.Columns([friend,  chatee])
